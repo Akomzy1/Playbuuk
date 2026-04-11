@@ -1,0 +1,471 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Playbuuk — Global Styles
+   Design: Bloomberg Terminal density × luxury fintech polish
+   Theme: Dark only (MVP)
+   Fonts: Outfit (UI) + IBM Plex Mono (data/numbers/grades)
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Fonts are self-hosted via next/font — no external @import needed */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* ── Primitive colours ── */
+    --color-slate-950: #050810;
+    --color-slate-900: #0b1121;
+    --color-slate-800: #101b30;
+    --color-slate-750: #122040;
+    --color-slate-700: #152238;
+    --color-slate-600: #1a2845;
+    --color-slate-500: #2a3f6e;
+    --color-slate-400: #3d5078;
+    --color-slate-300: #6b7fa3;
+    --color-slate-200: #a8b8d4;
+    --color-slate-100: #e8edf5;
+
+    /* ── Semantic: Backgrounds ── */
+    --bg:         #050810;   /* Page background — deep space, not pure black   */
+    --surface:    #0b1121;   /* Card / panel backgrounds                        */
+    --card:       #101b30;   /* Elevated card backgrounds                       */
+    --card-hover: #152238;   /* Card hover state                                */
+    --overlay:    rgba(5, 8, 16, 0.85); /* Modal overlays                     */
+
+    /* ── Semantic: Borders ── */
+    --border:        #1a2845; /* Default border — subtle                        */
+    --border-hover:  #2a3f6e; /* Hover border                                   */
+    --border-accent: rgba(0, 229, 176, 0.27); /* Accent-tinted border          */
+
+    /* ── Brand: Accent (Playbuuk green) ── */
+    --accent:      #00e5b0;              /* Primary CTA, verified badges, B+   */
+    --accent-dim:  rgba(0, 229, 176, 0.4);
+    --accent-glow: rgba(0, 229, 176, 0.2);
+
+    /* ── Brand: Gold ── */
+    --gold:      #fbbf24;              /* A+ grade, premium                    */
+    --gold-dim:  rgba(251, 191, 36, 0.4);
+    --gold-glow: rgba(251, 191, 36, 0.2);
+
+    /* ── Brand: Danger / Red ── */
+    --danger:      #ff4d6a;            /* D+ grade, warnings, sell             */
+    --danger-dim:  rgba(255, 77, 106, 0.4);
+    --danger-glow: rgba(255, 77, 106, 0.2);
+
+    /* ── Brand: Info colours ── */
+    --info:    #4d8eff;  /* B+ grade, buy signals, links                       */
+    --cyan:    #22d3ee;  /* C+ grade, secondary info                           */
+    --purple:  #a78bfa;  /* Premium, special states                            */
+    --warning: #fb923c;  /* Warnings, override states                          */
+
+    /* ── Text hierarchy ── */
+    --text:     #e8edf5; /* Primary text                                       */
+    --dim:      #6b7fa3; /* Secondary text                                     */
+    --muted:    #3d5078; /* Tertiary / placeholder                             */
+    --disabled: #253350; /* Disabled state                                     */
+
+    /* ── Grade colour aliases ── */
+    --grade-a: var(--gold);    /* A+ — 85%+ conditions met                    */
+    --grade-b: var(--accent);  /* B+ — 70–84%                                 */
+    --grade-c: var(--cyan);    /* C+ — 50–69%                                 */
+    --grade-d: var(--danger);  /* D+ — < 50%                                  */
+
+    /* ── Component tokens ── */
+    --btn-primary-bg:       var(--accent);
+    --btn-primary-text:     var(--bg);
+    --btn-primary-hover-bg: #00c49a;
+    --btn-danger-bg:        var(--danger);
+
+    --input-bg:           var(--surface);
+    --input-border:       var(--border);
+    --input-focus-border: var(--accent);
+    --input-text:         var(--text);
+    --input-placeholder:  var(--muted);
+
+    --nav-bg:     rgba(5, 8, 16, 0.8);
+    --nav-border: var(--border);
+    --nav-height: 4rem;       /* 64px */
+
+    --sidebar-width:          16rem;  /* 256px — expanded */
+    --sidebar-width-collapsed: 4rem;  /* 64px  — collapsed */
+
+    /* ── Typography ── */
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  /* ─── Global resets ──────────────────────────────────────────────────────── */
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Typography defaults ─────────────────────────────────────────────────── */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  h1 { font-size: clamp(1.875rem, 4vw, 3rem); }
+  h2 { font-size: clamp(1.375rem, 2.5vw, 2rem); }
+  h3 { font-size: clamp(1.125rem, 2vw, 1.5rem); }
+  h4 { font-size: 1.125rem; }
+
+  p {
+    color: var(--dim);
+    line-height: 1.7;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+  a:hover { color: #00c49a; }
+
+  /* Data / financial values always in mono */
+  .mono,
+  [data-mono],
+  .grade,
+  .price,
+  .stat {
+    font-family: var(--font-mono);
+  }
+
+  /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: var(--bg); }
+  ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+  /* ─── Text selection ─────────────────────────────────────────────────────── */
+  ::selection {
+    background: var(--accent-glow);
+    color: var(--text);
+  }
+
+  /* ─── Focus rings ────────────────────────────────────────────────────────── */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ─── Reduced motion ─────────────────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Text balance for headings */
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(11, 17, 33, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+  }
+
+  .glass-light {
+    background: rgba(16, 27, 48, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Subtle grid background pattern (terminal feel) */
+  .bg-grid {
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center center;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--warning) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Skeleton shimmer loader */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface) 25%,
+      var(--card) 50%,
+      var(--surface) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Noise texture overlay */
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Grade colour utilities */
+  .grade-a-text  { color: var(--grade-a); }
+  .grade-b-text  { color: var(--grade-b); }
+  .grade-c-text  { color: var(--grade-c); }
+  .grade-d-text  { color: var(--grade-d); }
+
+  .grade-a-bg    { background-color: var(--gold-glow); }
+  .grade-b-bg    { background-color: var(--accent-glow); }
+  .grade-c-bg    { background-color: rgba(34, 211, 238, 0.12); }
+  .grade-d-bg    { background-color: var(--danger-glow); }
+
+  .grade-a-border { border-color: var(--gold-dim); }
+  .grade-b-border { border-color: var(--accent-dim); }
+  .grade-c-border { border-color: rgba(34, 211, 238, 0.35); }
+  .grade-d-border { border-color: var(--danger-dim); }
+
+  /* Accent glow box-shadow */
+  .glow-accent  { box-shadow: 0 0 20px var(--accent-glow); }
+  .glow-gold    { box-shadow: 0 0 20px var(--gold-glow); }
+  .glow-danger  { box-shadow: 0 0 20px var(--danger-glow); }
+
+  /* Truncate variants */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Safe area insets for PWA / notched phones */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+}
+
+/* ─── Component layer ────────────────────────────────────────────────────────── */
+@layer components {
+  /* ── Base card ── */
+  .card {
+    @apply relative overflow-hidden rounded-2xl;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+  }
+  .card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 0 24px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  .card:hover::before { opacity: 1; }
+
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2;
+    @apply rounded-xl font-semibold text-sm;
+    @apply transition-all duration-150;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    focus-visible:ring-offset-color: var(--bg);
+  }
+
+  .btn-primary {
+    @apply btn;
+    @apply py-3 px-6;
+    background: var(--accent);
+    color: var(--bg);
+    focus-visible:ring-color: var(--accent);
+  }
+  .btn-primary:hover {
+    background: var(--btn-primary-hover-bg);
+    box-shadow: 0 0 24px var(--accent-glow);
+  }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-secondary {
+    @apply btn py-3 px-6;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+  }
+  .btn-secondary:hover { background: var(--accent-glow); }
+
+  .btn-ghost {
+    @apply btn py-2 px-4;
+    background: transparent;
+    color: var(--dim);
+  }
+  .btn-ghost:hover {
+    color: var(--text);
+    background: var(--card);
+  }
+
+  .btn-danger {
+    @apply btn py-3 px-6;
+    background: var(--danger);
+    color: white;
+  }
+  .btn-danger:hover { box-shadow: 0 0 24px var(--danger-glow); }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl text-sm;
+    @apply transition-colors duration-150;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    outline: none;
+  }
+  .input::placeholder { color: var(--muted); }
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-dim);
+  }
+
+  /* ── Badge / Tag ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full;
+    @apply text-xs font-medium;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--dim);
+  }
+
+  .badge-verified {
+    @apply badge;
+    background: var(--accent-glow);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .badge-ai-draft {
+    @apply badge;
+    background: rgba(251, 146, 60, 0.1);
+    border-color: rgba(251, 146, 60, 0.3);
+    color: var(--warning);
+  }
+
+  /* ── Divider ── */
+  .divider {
+    @apply w-full;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Page container ── */
+  .container-page {
+    @apply mx-auto w-full px-4 sm:px-6 lg:px-8;
+    max-width: 1280px;
+  }
+
+  /* ── Section header ── */
+  .section-header {
+    @apply mb-8;
+  }
+  .section-header h2 {
+    @apply text-2xl font-bold;
+    color: var(--text);
+  }
+  .section-header p {
+    @apply mt-2 text-sm;
+    color: var(--dim);
+  }
+}
+
+/* ─── Keyframe animations ───────────────────────────────────────────────────── */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { box-shadow: 0 0 16px var(--accent-glow); }
+  50%       { box-shadow: 0 0 32px var(--accent-glow); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}

@@ -1,0 +1,608 @@
+// =============================================================================
+// Playbuuk — Prisma Schema
+// Database : Supabase PostgreSQL (pgbouncer connection pooler + direct URL)
+// Tables   : 14
+// Generated: prisma generate
+//
+// IMPORTANT — triggers not expressible in Prisma SDL, apply via Supabase SQL
+// editor or a migration file after `prisma migrate`:
+//
+//   CREATE OR REPLACE FUNCTION increment_follower_count()
+//   RETURNS TRIGGER AS $$
+//   BEGIN
+//     UPDATE mentors SET follower_count = follower_count + 1
+//     WHERE id = NEW.mentor_id;
+//     RETURN NEW;
+//   END;
+//   $$ LANGUAGE plpgsql;
+//
+//   CREATE TRIGGER on_follow
+//   AFTER INSERT ON mentor_follows
+//   FOR EACH ROW EXECUTE FUNCTION increment_follower_count();
+//
+//   CREATE OR REPLACE FUNCTION decrement_follower_count()
+//   RETURNS TRIGGER AS $$
+//   BEGIN
+//     UPDATE mentors SET follower_count = follower_count - 1
+//     WHERE id = OLD.mentor_id;
+//     RETURN OLD;
+//   END;
+//   $$ LANGUAGE plpgsql;
+//
+//   CREATE TRIGGER on_unfollow
+//   AFTER DELETE ON mentor_follows
+//   FOR EACH ROW EXECUTE FUNCTION decrement_follower_count();
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+/// User roles — controls route and feature access
+enum Role {
+  trader
+  mentor
+  admin
+}
+
+/// Subscription tier stored on the profile — quick access without joining subscriptions
+enum Tier {
+  free
+  pro
+}
+
+/// Lifecycle of a mentor from admin-add through to verified
+enum OnboardingStatus {
+  admin_added      // Admin entered mentor details; AI draft not yet generated
+  draft_ready      // AI playbook generated; mentor not yet contacted
+  invitation_sent  // Outreach email sent to mentor
+  under_review     // Mentor signed up and submitted playbook edits for review
+  verified         // Admin approved; green badge applied; Stripe payouts active
+  withdrawn        // Mentor declined or removed
+}
+
+/// Subscription tier stored on a Subscription row (more detail than Tier)
+enum SubscriptionTier {
+  free
+  pro            // $19.99/month — full platform access for all followed mentors
+  mentor_direct  // $9.99/month — premium access for one specific mentor
+}
+
+enum SubscriptionStatus {
+  active
+  past_due   // Payment failed; brief grace period before downgrade
+  canceled
+  incomplete // Stripe checkout started but not completed
+}
+
+/// Playbook usage events that power the mentor revenue-share calculation
+enum EventType {
+  checklist_open  // 1 point
+  time_spent      // 1 point per 5 minutes (duration_seconds populated)
+  trade_logged    // 2 points
+  trade_executed  // 3 points
+}
+
+enum Direction {
+  long
+  short
+}
+
+enum TradeOutcome {
+  pending    // Trade still open
+  win
+  loss
+  breakeven
+}
+
+/// Whether a trade was initiated manually or through the Playbuuk execution bridge
+enum ExecutionSource {
+  manual    // Trader executed in MT5 independently and logged it here
+  playbuuk  // Executed via the trade execution bridge
+}
+
+enum Platform {
+  mt4
+  mt5
+}
+
+enum AccountType {
+  demo
+  live
+}
+
+enum RequestStatus {
+  open        // Accepting votes
+  in_progress // Admin actioning it (AI extraction in progress)
+  added       // Mentor was added to the platform
+  declined    // Admin declined the request
+}
+
+enum PayoutStatus {
+  accrued    // Calculated; not yet transferred (mentor may be unverified)
+  pending    // Ready for Stripe transfer
+  processing // Stripe transfer initiated
+  paid       // Stripe transfer confirmed
+  failed     // Stripe transfer failed; needs retry
+}
+
+/// Minimum setup grade needed to trigger an alert notification
+enum AlertThreshold {
+  a_plus  // Only alert on A+ (85%+) — most disciplined
+  b_plus  // Alert on B+ or better (70%+)
+  c_plus  // Alert on C+ or better (50%+) — lowest threshold
+}
+
+// =============================================================================
+// MODELS
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+/// User profile — mirrors auth.users in Supabase.
+/// Created automatically via a Supabase trigger on auth.users INSERT.
+// -----------------------------------------------------------------------------
+model Profile {
+  id                 String    @id @db.Uuid
+  role               Role      @default(trader)
+  display_name       String?
+  avatar_url         String?
+  tier               Tier      @default(free)
+  stripe_customer_id String?   @unique
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  mentor             Mentor?             @relation("MentorProfile")
+  added_mentors      Mentor[]            @relation("MentorAddedBy")
+  follows            MentorFollow[]
+  subscriptions      Subscription[]
+  playbook_usage     PlaybookUsage[]
+  trade_journal      TradeJournal[]
+  trading_accounts   TradingAccount[]
+  mentor_requests    MentorRequest[]
+  request_votes      MentorRequestVote[]
+  alert_preferences  AlertPreferences?
+  alert_log          AlertLog[]
+
+  @@map("profiles")
+}
+
+// -----------------------------------------------------------------------------
+/// A trading mentor. user_id is NULL until the real mentor claims the profile.
+/// Mentors can be admin-added with AI-extracted playbooks before they join.
+// -----------------------------------------------------------------------------
+model Mentor {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// FK to profiles — NULL until mentor claims their profile
+  user_id            String?          @unique @db.Uuid
+  display_name       String
+  /// Unique URL handle — e.g. "alexg" → /mentor/alexg
+  handle             String           @unique
+  bio                String?          @db.Text
+  avatar_emoji       String?          @default("🎯")
+  /// e.g. ["Forex", "Indices", "Crypto"]
+  markets            Json             @default("[]") @db.JsonB
+  style              String?
+  signature          String?          @db.Text
+  /// Maintained by DB trigger on mentor_follows — do NOT update manually
+  follower_count     Int              @default(0)
+  external_followers String?
+  /// 0.00 – 5.00
+  rating             Decimal?         @db.Decimal(3, 2)
+  review_count       Int              @default(0)
+  verified           Boolean          @default(false)
+  verified_at        DateTime?        @db.Timestamptz(6)
+  /// Stripe Connect Express account ID — populated when mentor connects payout
+  stripe_connect_id  String?          @unique
+  onboarding_status  OnboardingStatus @default(admin_added)
+  /// Which admin added this mentor
+  added_by           String?          @db.Uuid
+  contact_info       String?          @db.Text
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  profile            Profile?         @relation("MentorProfile", fields: [user_id], references: [id], onDelete: SetNull)
+  added_by_profile   Profile?         @relation("MentorAddedBy", fields: [added_by], references: [id], onDelete: SetNull)
+  playbooks          Playbook[]
+  followers          MentorFollow[]
+  payouts            MentorPayout[]
+  escrow             MentorEscrow?
+  alert_log          AlertLog[]
+
+  // ── Indexes ──
+  @@index([verified])                  // Marketplace filter: verified mentors first
+  @@index([onboarding_status])         // Admin pipeline view
+  @@index([follower_count])            // Marketplace sort by popularity
+  @@index([added_by])                  // FK — find all mentors added by an admin
+  @@map("mentors")
+}
+
+// -----------------------------------------------------------------------------
+/// Follow relationship — free, no subscription required.
+/// follower_count on Mentor is maintained by DB triggers, not application code.
+// -----------------------------------------------------------------------------
+model MentorFollow {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  mentor_id   String   @db.Uuid
+  followed_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // ── Relations ──
+  user        Profile  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  mentor      Mentor   @relation(fields: [mentor_id], references: [id], onDelete: Cascade)
+
+  // ── Constraints & indexes ──
+  /// Prevents duplicate follows
+  @@unique([user_id, mentor_id])
+  @@index([mentor_id])                 // Find all followers of a mentor
+  @@index([user_id])                   // Find all mentors a user follows
+  @@map("mentor_follows")
+}
+
+// -----------------------------------------------------------------------------
+/// A mentor's strategy playbook — the core content unit.
+/// checklist is JSONB: [{id, item, category, weight, auto, evalKey}]
+/// evalKey maps to the auto-evaluation registry in lib/playbook/evaluator.ts
+// -----------------------------------------------------------------------------
+model Playbook {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mentor_id          String    @db.Uuid
+  strategy_name      String
+  summary            String?   @db.Text
+  /// ["15min", "1H", "4H"]
+  timeframes         Json      @default("[]") @db.JsonB
+  core_concepts      Json      @default("[]") @db.JsonB
+  /// [{rule, detail}]
+  entry_rules        Json      @default("[]") @db.JsonB
+  exit_rules         Json      @default("[]") @db.JsonB
+  /// {risk_per_trade, rr_ratio, max_daily_loss, ...}
+  risk_management    Json      @default("{}") @db.JsonB
+  indicators         Json      @default("[]") @db.JsonB
+  /// [{id, item, category, weight, auto, evalKey}]
+  /// evalKey: null = manual-only | string = auto-evaluated by evaluator.ts
+  checklist          Json      @default("[]") @db.JsonB
+  golden_rules       Json      @default("[]") @db.JsonB
+  common_mistakes    Json      @default("[]") @db.JsonB
+  preferred_pairs    Json      @default("[]") @db.JsonB
+  session_preference String?
+  /// True after mentor has reviewed and approved the AI draft
+  is_verified        Boolean   @default(false)
+  /// True if this was AI-extracted and not yet mentor-reviewed
+  is_ai_draft        Boolean   @default(true)
+  version            Int       @default(1)
+  published_at       DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  mentor             Mentor          @relation(fields: [mentor_id], references: [id], onDelete: Cascade)
+  usage              PlaybookUsage[]
+  trade_journal      TradeJournal[]
+  alert_log          AlertLog[]
+
+  // ── Indexes ──
+  @@index([mentor_id])                 // Find all playbooks for a mentor
+  @@index([is_verified, is_ai_draft])  // Filter: verified non-draft playbooks for marketplace
+  @@index([published_at])              // Sort by publish date
+  @@map("playbooks")
+}
+
+// -----------------------------------------------------------------------------
+/// Stripe subscription record.
+/// mentor_id is only populated for mentor_direct tier.
+// -----------------------------------------------------------------------------
+model Subscription {
+  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                String             @db.Uuid
+  tier                   SubscriptionTier   @default(free)
+  /// Populated only for mentor_direct tier — the specific mentor subscribed to
+  mentor_id              String?            @db.Uuid
+  stripe_subscription_id String?            @unique
+  status                 SubscriptionStatus @default(active)
+  period_start           DateTime?          @db.Timestamptz(6)
+  period_end             DateTime?          @db.Timestamptz(6)
+  created_at             DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime           @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  user                   Profile            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ── Indexes ──
+  @@index([user_id, status])           // Middleware: check if user has active subscription
+  @@index([user_id, tier])             // Feature gate: check tier quickly
+  @@index([mentor_id])                 // Find all mentor_direct subs for a mentor (revenue calc)
+  @@index([status])                    // Admin: find all past_due or canceled subs
+  @@map("subscriptions")
+}
+
+// -----------------------------------------------------------------------------
+/// Tracks every meaningful interaction a Pro trader has with a playbook.
+/// Powers the monthly mentor revenue-share calculation.
+/// Points: checklist_open=1, time_spent=1/5min, trade_logged=2, trade_executed=3
+// -----------------------------------------------------------------------------
+model PlaybookUsage {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  playbook_id      String    @db.Uuid
+  event_type       EventType
+  /// Seconds — only populated for time_spent events
+  duration_seconds Int?
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  // ── Relations ──
+  user             Profile   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  playbook         Playbook  @relation(fields: [playbook_id], references: [id], onDelete: Cascade)
+
+  // ── Indexes ──
+  @@index([playbook_id, event_type])   // Revenue calc: sum points per playbook
+  @@index([user_id])                   // User activity history
+  @@index([created_at])                // Monthly period filtering for revenue calc
+  @@index([playbook_id, created_at])   // Composite — revenue calc by playbook in period
+  @@map("playbook_usage")
+}
+
+// -----------------------------------------------------------------------------
+/// Psychology-enriched trade journal — the core accountability engine.
+/// grade_override = true means the trader executed below their grade threshold.
+/// This data powers the psychology insights panel ("overrides cost you X%").
+// -----------------------------------------------------------------------------
+model TradeJournal {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String          @db.Uuid
+  playbook_id      String?         @db.Uuid
+  /// e.g. "EURUSD", "US30", "BTCUSD"
+  pair             String
+  direction        Direction
+  /// Risk in R — e.g. 1.0 = 1% account risk
+  risk_r           Decimal?        @db.Decimal(5, 2)
+  /// "A+", "B+", "C+", "D+" — grade at time of entry
+  setup_grade      String?
+  entry_price      Decimal?        @db.Decimal(12, 5)
+  stop_loss        Decimal?        @db.Decimal(12, 5)
+  take_profit      Decimal?        @db.Decimal(12, 5)
+  lot_size         Decimal?        @db.Decimal(8, 2)
+  outcome          TradeOutcome    @default(pending)
+  /// Profit/loss in R multiples — e.g. 2.0 = 2R win, -1.0 = 1R loss
+  pnl_r            Decimal?        @db.Decimal(8, 2)
+  /// MT5 order ticket number — returned by MetaApi on execution
+  mt5_ticket       String?
+  execution_source ExecutionSource @default(manual)
+  /// TRUE if trader executed despite grade being below their threshold.
+  /// Non-negotiable accountability field — NEVER omit.
+  grade_override   Boolean         @default(false)
+  /// Optional pre-trade emotion tag — key psychology data
+  /// e.g. "FOMO", "Revenge", "Boredom", "Conviction", "Calm"
+  pre_trade_emotion String?
+  /// Post-trade reflection — what happened, what would I do differently?
+  post_trade_note  String?         @db.Text
+  notes            String?         @db.Text
+  /// Was this trade opened from a push alert tap?
+  alert_initiated  Boolean         @default(false)
+  /// FK to the alert that initiated this trade (if alert_initiated = true)
+  alert_id         String?         @db.Uuid
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime        @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  user             Profile         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  playbook         Playbook?       @relation(fields: [playbook_id], references: [id], onDelete: SetNull)
+  alert            AlertLog?       @relation("AlertToTrade", fields: [alert_id], references: [id], onDelete: SetNull)
+
+  // ── Indexes ──
+  @@index([user_id, created_at])       // Journal timeline view
+  @@index([user_id, outcome])          // Win-rate analytics
+  @@index([user_id, grade_override])   // Psychology insight: override trades
+  @@index([user_id, setup_grade])      // Win-rate by grade tier
+  @@index([user_id, alert_initiated])  // Alert vs self-initiated comparison
+  @@index([playbook_id])               // FK — all trades for a playbook
+  @@index([pair, created_at])          // Filter by instrument
+  @@index([outcome])                   // Platform-wide stats
+  @@map("trade_journal")
+}
+
+// -----------------------------------------------------------------------------
+/// Connected MT4/MT5 trading accounts via MetaApi.
+/// SECURITY: metaapi_account_id only — NEVER store MT5 passwords.
+// -----------------------------------------------------------------------------
+model TradingAccount {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String      @db.Uuid
+  /// MetaApi account ID — the only credential stored. MT5 password NEVER stored.
+  metaapi_account_id String      @unique
+  broker_name        String
+  account_number     String
+  server             String
+  platform           Platform    @default(mt5)
+  account_type       AccountType @default(demo)
+  balance            Decimal?    @db.Decimal(12, 2)
+  currency           String      @default("USD")
+  leverage           Int?
+  is_active          Boolean     @default(true)
+  connected_at       DateTime    @default(now()) @db.Timestamptz(6)
+  last_synced_at     DateTime?   @db.Timestamptz(6)
+
+  // ── Relations ──
+  user               Profile     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ── Indexes ──
+  @@index([user_id, is_active])        // Active accounts for a user
+  @@map("trading_accounts")
+}
+
+// -----------------------------------------------------------------------------
+/// User-submitted requests to add a mentor to the platform.
+/// Ranked by votes — admins use vote_count as an outreach lever.
+// -----------------------------------------------------------------------------
+model MentorRequest {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mentor_name   String
+  mentor_handle String?
+  markets       Json          @default("[]") @db.JsonB
+  requested_by  String        @db.Uuid
+  /// Maintained by application logic (increment on each new vote row)
+  vote_count    Int           @default(1)
+  status        RequestStatus @default(open)
+  admin_notes   String?       @db.Text
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime      @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  requester     Profile       @relation(fields: [requested_by], references: [id])
+  votes         MentorRequestVote[]
+
+  // ── Indexes ──
+  @@index([status, vote_count])        // Admin view: open requests sorted by votes
+  @@index([requested_by])              // Find all requests by a user
+  @@map("mentor_requests")
+}
+
+// -----------------------------------------------------------------------------
+/// One vote per user per mentor request. Prevents double-voting.
+// -----------------------------------------------------------------------------
+model MentorRequestVote {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id String        @db.Uuid
+  user_id    String        @db.Uuid
+  voted_at   DateTime      @default(now()) @db.Timestamptz(6)
+
+  // ── Relations ──
+  request    MentorRequest @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  user       Profile       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ── Constraints & indexes ──
+  @@unique([request_id, user_id])      // One vote per user per request
+  @@index([user_id])                   // Find all votes cast by a user
+  @@map("mentor_request_votes")
+}
+
+// -----------------------------------------------------------------------------
+/// Monthly payout record for a verified mentor.
+/// Created by the monthly payout calculation job.
+// -----------------------------------------------------------------------------
+model MentorPayout {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mentor_id          String       @db.Uuid
+  period_start       DateTime     @db.Timestamptz(6)
+  period_end         DateTime     @db.Timestamptz(6)
+  /// Revenue attributed from Pro subscriptions (40% pool, mentor's share)
+  pro_share_amount   Decimal      @default(0) @db.Decimal(10, 2)
+  /// Revenue from Mentor Direct subscriptions (50% to this mentor)
+  direct_amount      Decimal      @default(0) @db.Decimal(10, 2)
+  total_amount       Decimal      @default(0) @db.Decimal(10, 2)
+  status             PayoutStatus @default(accrued)
+  /// Stripe Connect transfer ID — populated when transfer is initiated
+  stripe_transfer_id String?      @unique
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime     @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  mentor             Mentor       @relation(fields: [mentor_id], references: [id])
+
+  // ── Indexes ──
+  @@index([mentor_id, period_start])   // Payout history for a mentor
+  @@index([status])                    // Admin: all pending/processing payouts
+  @@map("mentor_payouts")
+}
+
+// -----------------------------------------------------------------------------
+/// Revenue escrow for unverified mentors.
+/// One row per mentor. total_accrued grows until mentor claims (then released).
+/// Escrow expires 12 months after first accrual — documented in ToS.
+// -----------------------------------------------------------------------------
+model MentorEscrow {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mentor_id             String    @unique @db.Uuid
+  /// Running total of revenue accrued but not yet paid
+  total_accrued         Decimal   @default(0) @db.Decimal(10, 2)
+  last_calculated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  released              Boolean   @default(false)
+  released_at           DateTime? @db.Timestamptz(6)
+  /// The MentorPayout row that this escrow was converted into on release
+  released_to_payout_id String?   @db.Uuid
+
+  // ── Relations ──
+  mentor                Mentor    @relation(fields: [mentor_id], references: [id])
+
+  // ── Indexes ──
+  @@index([released])                  // Admin: find all unreleased escrow balances
+  @@map("mentor_escrow")
+}
+
+// -----------------------------------------------------------------------------
+/// Per-trader alert notification preferences.
+/// One row per user — upsert on first save.
+// -----------------------------------------------------------------------------
+model AlertPreferences {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String         @unique @db.Uuid
+  /// Minimum grade required to send a push notification
+  alert_threshold     AlertThreshold @default(a_plus)
+  /// JSONB array of mentor UUIDs to monitor — NULL = all followed mentors
+  alert_mentors       Json?          @db.JsonB
+  /// JSONB array of pairs to monitor — NULL = mentor's preferred_pairs
+  alert_pairs         Json?          @db.JsonB
+  /// JSONB array of session names — NULL = any session
+  /// e.g. ["london", "new_york", "tokyo", "sydney"]
+  alert_sessions      Json?          @db.JsonB
+  /// "22:00" format — no alerts sent after this time
+  quiet_hours_start   String?
+  /// "06:00" format — alerts resume from this time
+  quiet_hours_end     String?
+  push_enabled        Boolean        @default(true)
+  /// Full Web Push API subscription object — stored server-side for push delivery
+  /// {endpoint, keys: {p256dh, auth}}
+  push_subscription   Json?          @db.JsonB
+  created_at          DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime       @updatedAt @db.Timestamptz(6)
+
+  // ── Relations ──
+  user                Profile        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("alert_preferences")
+}
+
+// -----------------------------------------------------------------------------
+/// Every alert notification sent to a trader.
+/// Powers alert analytics: tap rate, trade conversion rate, win rate comparison.
+// -----------------------------------------------------------------------------
+model AlertLog {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String       @db.Uuid
+  mentor_id         String       @db.Uuid
+  playbook_id       String       @db.Uuid
+  pair              String
+  /// "A+", "B+", "C+"
+  grade             String
+  /// 0–100 — percentage of checklist conditions met at alert time
+  checklist_score   Decimal      @db.Decimal(5, 2)
+  sent_at           DateTime     @default(now()) @db.Timestamptz(6)
+  /// Did the trader tap the notification to open the playbook?
+  tapped            Boolean      @default(false)
+  tapped_at         DateTime?    @db.Timestamptz(6)
+  /// Did this alert lead to an executed trade?
+  resulted_in_trade Boolean      @default(false)
+  trade_id          String?      @db.Uuid
+
+  // ── Relations ──
+  user              Profile      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  mentor            Mentor       @relation(fields: [mentor_id], references: [id])
+  playbook          Playbook     @relation(fields: [playbook_id], references: [id])
+  /// Back-reference from the trade that came from this alert
+  trade             TradeJournal[] @relation("AlertToTrade")
+
+  // ── Indexes ──
+  @@index([user_id, sent_at])          // Alert history timeline
+  @@index([user_id, resulted_in_trade]) // Alert conversion analytics
+  @@index([mentor_id, pair, grade, sent_at]) // Dedup check: same mentor+pair+grade within 30min
+  @@index([playbook_id])               // FK lookup
+  @@map("alert_log")
+}
