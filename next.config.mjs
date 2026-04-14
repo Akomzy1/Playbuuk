@@ -50,11 +50,19 @@ const nextConfig = {
   },
 
   // ── Redirects ─────────────────────────────────────────────────────────────
+  // Note on auth routes:
+  //   app/(auth)/login/page.tsx  → serves /login  (route group is transparent)
+  //   app/(auth)/signup/page.tsx → serves /signup
+  // No redirects needed — the pages are already at these URLs.
+  //
+  // Note on /home:
+  //   app/(marketing)/home/page.tsx → serves /home (the public landing page)
+  //   app/page.tsx smart-routes: auth → /marketplace, non-auth → /home
+  // No redirect for /home — it IS the destination.
   async redirects() {
     return [
-      { source: '/home',    destination: '/',         permanent: true },
-      { source: '/login',   destination: '/auth/login',  permanent: true },
-      { source: '/signup',  destination: '/auth/signup', permanent: true },
+      // Legacy: if anyone bookmarked /marketplace pre-auth it stays working
+      // (no redirect needed — page exists at that path)
     ];
   },
 

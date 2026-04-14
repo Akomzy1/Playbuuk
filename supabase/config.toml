@@ -1,0 +1,22 @@
+# supabase/config.toml
+# Supabase project configuration — edge functions, crons, etc.
+# Reference: https://supabase.com/docs/guides/functions/schedule-functions
+
+[project]
+id = "your-project-ref"   # replace with your Supabase project ref
+
+# ─── Alert Scanner — runs every 30 seconds ────────────────────────────────────
+# Evaluates all pair × mentor combos for Pro users with push enabled.
+# Sends Web Push notifications when grade >= user's alert threshold.
+#
+# Required secrets (set via CLI: supabase secrets set KEY=value):
+#   VAPID_PUBLIC_KEY     — your NEXT_PUBLIC_VAPID_PUBLIC_KEY value
+#   VAPID_PRIVATE_KEY    — your VAPID_PRIVATE_KEY value
+#   VAPID_SUBJECT        — mailto:support@playbuuk.com
+
+[functions.alert-scanner]
+verify_jwt = false   # invoked by cron, not by authenticated users
+
+[[functions.alert-scanner.crons]]
+name     = "every-30-seconds"
+schedule = "*/30 * * * * *"

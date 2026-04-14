@@ -1,59 +1,92 @@
-import type { MetadataRoute } from 'next'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Static sitemap — all public pages.
-// Dynamic mentor pages will be added once the DB query is wired up.
+// app/sitemap.ts — dynamic sitemap.xml
+// Includes static marketing pages + every public mentor profile.
+// Mentor pages are high SEO value: [mentor-name] trading strategy / playbook.
+//
 // Priority convention:
-//   1.0  → homepage (highest crawl priority)
-//   0.9  → high-value marketing/conversion pages
-//   0.8  → secondary marketing pages
-//   0.7  → legal/support (crawlable but low priority)
-// changeFrequency: 'weekly' for marketing, 'monthly' for legal
-// ─────────────────────────────────────────────────────────────────────────────
+//   1.0  homepage (highest crawl priority)
+//   0.9  mentor profile pages (unique strategy content — AI citation targets)
+//   0.8  signup / conversion
+//   0.7  secondary marketing / legal
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://playbuuk.com'
+import type { MetadataRoute } from 'next'
+import { createClient }        from '@/lib/supabase/server'
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://playbuuk.com'
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
+  // ── Static pages ─────────────────────────────────────────────────────────────
   const staticPages: MetadataRoute.Sitemap = [
     {
-      url: baseUrl,
-      lastModified: now,
+      url:             `${BASE_URL}/home`,
+      lastModified:    now,
       changeFrequency: 'weekly',
-      priority: 1.0,
+      priority:        1.0,
     },
     {
-      url: `${baseUrl}/login`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.5,
+      url:             `${BASE_URL}/marketplace`,
+      lastModified:    now,
+      changeFrequency: 'daily',
+      priority:        0.9,
     },
     {
-      url: `${baseUrl}/signup`,
-      lastModified: now,
+      url:             `${BASE_URL}/signup`,
+      lastModified:    now,
       changeFrequency: 'monthly',
-      priority: 0.8,
+      priority:        0.8,
+    },
+    {
+      url:             `${BASE_URL}/login`,
+      lastModified:    now,
+      changeFrequency: 'monthly',
+      priority:        0.5,
+    },
+    {
+      url:             `${BASE_URL}/disclaimer`,
+      lastModified:    now,
+      changeFrequency: 'yearly',
+      priority:        0.7,
+    },
+    {
+      url:             `${BASE_URL}/terms`,
+      lastModified:    now,
+      changeFrequency: 'yearly',
+      priority:        0.6,
+    },
+    {
+      url:             `${BASE_URL}/privacy`,
+      lastModified:    now,
+      changeFrequency: 'yearly',
+      priority:        0.6,
     },
   ]
 
-  // ── Dynamic mentor pages ──────────────────────────────────────────────────
-  // TODO: fetch public mentor profiles from Supabase and append here.
-  // Pattern (once DB is wired):
-  //
-  //   const { data: mentors } = await createAdminClient()
-  //     .from('profiles')
-  //     .select('id, updated_at')
-  //     .eq('role', 'mentor')
-  //     .eq('is_active', true)
-  //
-  //   const mentorPages: MetadataRoute.Sitemap = (mentors ?? []).map((m) => ({
-  //     url: `${baseUrl}/mentor/${m.id}`,
-  //     lastModified: new Date(m.updated_at),
-  //     changeFrequency: 'weekly',
-  //     priority: 0.9,
-  //   }))
-  //
-  //   return [...staticPages, ...mentorPages]
+  // ── Dynamic mentor profile pages ──────────────────────────────────────────
+  // Each verified mentor page is a unique SEO asset: strategy name, mentor
+  // handle, and playbook content make them crawlable and citable by AI engines.
+  let mentorPages: MetadataRoute.Sitemap = []
 
-  return staticPages
+  try {
+    const supabase = createClient()
+    const { data: mentors } = await supabase
+      .from('mentors')
+      .select('id, handle, updated_at')
+      .neq('onboarding_status', 'withdrawn')
+      .order('follower_count', { ascending: false })
+      .limit(500)  // safety cap — adjust if mentor count grows
+
+    if (mentors) {
+      mentorPages = mentors.map(m => ({
+        url:             `${BASE_URL}/mentor/${m.id}`,
+        lastModified:    m.updated_at ? new Date(m.updated_at) : now,
+        changeFrequency: 'weekly' as const,
+        priority:        0.9,
+      }))
+    }
+  } catch {
+    // Silently fall back to static-only sitemap — don't break the build
+  }
+
+  return [...staticPages, ...mentorPages]
 }

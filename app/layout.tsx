@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Outfit, IBM_Plex_Mono } from 'next/font/google'
+import { ServiceWorkerRegistration } from '@/components/pwa/sw-register'
 import './globals.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -197,6 +198,13 @@ export const metadata: Metadata = {
     },
   },
 
+  // Apple PWA meta tags (standalone mode, status bar, splash)
+  appleWebApp: {
+    capable: true,
+    title: 'Playbuuk',
+    statusBarStyle: 'black-translucent',
+  },
+
   // Links to manifest and app icons
   manifest: '/manifest.json',
   icons: {
@@ -279,6 +287,9 @@ export default function RootLayout({
         className="antialiased min-h-screen bg-bg text-text font-display overflow-x-hidden"
       >
         {children}
+
+        {/* SW registration — client-side only, renders nothing to DOM */}
+        <ServiceWorkerRegistration />
 
         {/*
           ── Analytics placeholder ──────────────────────────────────────────────
