@@ -51,7 +51,7 @@ export async function connectAccount(
 ): Promise<ConnectedAccountResult> {
   const { userId, brokerName, accountNumber, password, server, platform, accountType } = input
 
-  const api = getMetaApi()
+  const api = await getMetaApi()
 
   // 1. Create the MetaApi cloud account
   const account = await api.metatraderAccountApi.createAccount({
@@ -127,7 +127,7 @@ export async function connectAccount(
 // Does NOT delete the DB record — trading history references are preserved.
 
 export async function disconnectAccount(metaapiAccountId: string): Promise<void> {
-  const api = getMetaApi()
+  const api = await getMetaApi()
 
   const account = await api.metatraderAccountApi.getAccount(metaapiAccountId)
   await account.remove()
@@ -143,7 +143,7 @@ export async function disconnectAccount(metaapiAccountId: string): Promise<void>
 // then closes the connection.
 
 export async function getAccountInfo(metaapiAccountId: string): Promise<AccountInfo> {
-  const api = getMetaApi()
+  const api = await getMetaApi()
 
   const account = await api.metatraderAccountApi.getAccount(metaapiAccountId)
 

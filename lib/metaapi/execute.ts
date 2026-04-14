@@ -42,7 +42,7 @@ export async function executeTrade(
 ): Promise<TradeResult> {
   const { symbol, type, volume, stopLoss, takeProfit } = input
 
-  const api     = getMetaApi()
+  const api     = await getMetaApi()
   const account = await api.metatraderAccountApi.getAccount(metaapiAccountId)
 
   const conn = account.getRPCConnection()

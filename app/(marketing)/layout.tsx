@@ -1,6 +1,7 @@
 // app/(marketing)/layout.tsx
 // Layout for all public marketing / legal pages.
 // No auth required. Full landing-page nav with Sign In + Start Free CTAs.
+// Server Component — hover states are CSS-only (no event handlers).
 
 import Link from 'next/link'
 
@@ -59,10 +60,8 @@ export default function MarketingLayout({
               <Link
                 key={href}
                 href={href}
-                className="text-xs font-medium transition-colors"
+                className="text-xs font-medium transition-colors hover:text-text"
                 style={{ color: '#6b7fa3' }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7fa3')}
               >
                 {label}
               </Link>
@@ -73,28 +72,18 @@ export default function MarketingLayout({
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+              className="text-xs font-semibold px-3 py-2 rounded-xl transition-colors hover:text-text"
               style={{ color: '#6b7fa3' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7fa3')}
             >
               Sign in
             </Link>
             <Link
               href="/signup"
-              className="text-xs font-bold px-4 py-2 rounded-xl transition-all"
+              className="text-xs font-bold px-4 py-2 rounded-xl transition-all hover:brightness-110"
               style={{
                 background: 'var(--accent)',
                 color: 'var(--bg)',
                 boxShadow: '0 0 16px rgba(0,229,176,0.25)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#00c49a'
-                e.currentTarget.style.boxShadow = '0 0 24px rgba(0,229,176,0.4)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--accent)'
-                e.currentTarget.style.boxShadow = '0 0 16px rgba(0,229,176,0.25)'
               }}
             >
               Start free
@@ -144,10 +133,8 @@ export default function MarketingLayout({
                 <Link
                   key={href}
                   href={href}
-                  className="text-xs font-mono transition-colors"
+                  className="text-xs font-mono transition-colors hover:text-dim"
                   style={{ color: '#3d5078' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#6b7fa3')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#3d5078')}
                 >
                   {label}
                 </Link>

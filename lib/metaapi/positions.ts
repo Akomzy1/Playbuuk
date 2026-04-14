@@ -25,7 +25,7 @@ export interface Position {
 // Returns all currently open positions on the connected MT4/MT5 account.
 
 export async function getOpenPositions(metaapiAccountId: string): Promise<Position[]> {
-  const api     = getMetaApi()
+  const api     = await getMetaApi()
   const account = await api.metatraderAccountApi.getAccount(metaapiAccountId)
 
   const conn = account.getRPCConnection()
@@ -60,7 +60,7 @@ export async function closePosition(
   metaapiAccountId: string,
   positionId:       string,
 ): Promise<void> {
-  const api     = getMetaApi()
+  const api     = await getMetaApi()
   const account = await api.metatraderAccountApi.getAccount(metaapiAccountId)
 
   const conn = account.getRPCConnection()

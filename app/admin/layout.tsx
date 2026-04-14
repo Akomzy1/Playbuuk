@@ -68,16 +68,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 hover:text-text"
               style={{ color: 'var(--dim)' }}
-              onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                e.currentTarget.style.color = 'var(--text)'
-              }}
-              onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = 'var(--dim)'
-              }}
             >
               <Icon size={16} strokeWidth={1.8} aria-hidden="true" className="flex-shrink-0" />
               {label}
@@ -89,13 +81,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="px-2 py-3" style={{ borderTop: '1px solid rgba(26,40,69,0.6)' }}>
           <Link
             href="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted transition-all duration-150"
-            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-              e.currentTarget.style.color = 'var(--dim)'
-            }}
-            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-              e.currentTarget.style.color = 'var(--muted)'
-            }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 hover:text-dim"
+            style={{ color: 'var(--muted)' }}
           >
             ← Platform
           </Link>

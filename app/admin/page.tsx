@@ -211,15 +211,7 @@ export default async function AdminDashboard() {
           )
           if (card.href) {
             return (
-              <Link key={card.label} href={card.href} className="block"
-                onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)'
-                }}
-                onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  e.currentTarget.style.transform = 'none'
-                }}
-                style={{ transition: 'transform 0.15s' }}
-              >
+              <Link key={card.label} href={card.href} className="block hover:-translate-y-px transition-transform duration-150">
                 {inner}
               </Link>
             )
@@ -347,19 +339,11 @@ export default async function AdminDashboard() {
         ].map(link => (
           <Link
             key={link.href} href={link.href}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 hover:brightness-110"
             style={{
               background: 'var(--card)',
               border:     `1px solid var(--border)`,
               color:       link.color,
-            }}
-            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-              e.currentTarget.style.background = `${link.color}10`
-              e.currentTarget.style.borderColor = `${link.color}40`
-            }}
-            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-              e.currentTarget.style.background = 'var(--card)'
-              e.currentTarget.style.borderColor = 'var(--border)'
             }}
           >
             {link.label}

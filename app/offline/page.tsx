@@ -1,13 +1,9 @@
+'use client'
+
 // app/offline/page.tsx
 // Shown by the service worker when a navigation request fails offline
 // and no cached version of the page exists.
-
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'You\'re Offline',
-  robots: { index: false, follow: false },
-}
+// "use client" is required for the onClick reload button.
 
 export default function OfflinePage() {
   return (
