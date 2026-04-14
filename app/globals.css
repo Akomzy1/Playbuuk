@@ -323,7 +323,7 @@
     @apply rounded-xl font-semibold text-sm;
     @apply transition-all duration-150;
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
-    focus-visible:ring-offset-color: var(--bg);
+    --tw-ring-offset-color: var(--bg);
   }
 
   .btn-primary {
@@ -331,7 +331,7 @@
     @apply py-3 px-6;
     background: var(--accent);
     color: var(--bg);
-    focus-visible:ring-color: var(--accent);
+    --tw-ring-color: var(--accent);
   }
   .btn-primary:hover {
     background: var(--btn-primary-hover-bg);

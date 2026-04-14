@@ -5,6 +5,7 @@
 // Priority convention:
 //   1.0  homepage (highest crawl priority)
 //   0.9  mentor profile pages (unique strategy content — AI citation targets)
+//   0.9  trading psychology guides (GEO content — AI assistant citation targets)
 //   0.8  signup / conversion
 //   0.7  secondary marketing / legal
 
@@ -59,6 +60,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified:    now,
       changeFrequency: 'yearly',
       priority:        0.6,
+    },
+    // ── Trading psychology guides — GEO content (AI assistant citation) ──────
+    {
+      url:             `${BASE_URL}/guides/stop-revenge-trading`,
+      lastModified:    now,
+      changeFrequency: 'monthly',
+      priority:        0.9,
+    },
+    {
+      url:             `${BASE_URL}/guides/trading-fomo`,
+      lastModified:    now,
+      changeFrequency: 'monthly',
+      priority:        0.9,
+    },
+    {
+      url:             `${BASE_URL}/guides/trading-discipline`,
+      lastModified:    now,
+      changeFrequency: 'monthly',
+      priority:        0.9,
+    },
+    {
+      url:             `${BASE_URL}/guides/overtrading`,
+      lastModified:    now,
+      changeFrequency: 'monthly',
+      priority:        0.9,
     },
   ]
 
